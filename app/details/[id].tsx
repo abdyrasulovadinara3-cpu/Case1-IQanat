@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ArrowLeft, ShieldAlert, Trash2 } from "lucide-react-native";
+import { ArrowLeft, Database, ShieldAlert, Trash2 } from "lucide-react-native";
 import {
     Alert,
     ScrollView,
@@ -8,7 +8,6 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
-import { Colors } from "../../constants/Colors";
 import { useConsent } from "../../services-context/ConsentContext";
 
 export default function DetailsScreen() {
@@ -16,106 +15,123 @@ export default function DetailsScreen() {
   const router = useRouter();
   const { services, revokeAccess } = useConsent();
 
-  const service = services.find((s: any) => s.id === id);
-  if (!service) return null;
+  // Находим сервис
+  const service = services.find((s) => String(s.id) === String(id));
+
+  if (!service || service.status === "inactive") {
+    return (
+      <View style={styles.container}>
+        <Text style={{ color: "white", textAlign: "center", marginTop: 50 }}>
+          Сервис не найден
+        </Text>
+        <TouchableOpacity onPress={() => router.replace("/(tabs)")}>
+          <Text
+            style={{ color: "#8B5CF6", textAlign: "center", marginTop: 20 }}
+          >
+            Вернуться назад
+          </Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   const handleRevoke = () => {
-    Alert.alert(
-      "Отозвать доступ?",
-      "Этот сервис больше не сможет запрашивать ваши данные.",
-      [
-        { text: "Отмена", style: "cancel" },
-        {
-          text: "Отозвать",
-          style: "destructive",
-          onPress: () => {
-            revokeAccess(service.id);
-            router.replace("/(tabs)");
-          },
-        },
-      ],
-    );
+    revokeAccess(service.id);
+    Alert.alert("Успешно", "Все согласия отозваны", [
+      { text: "OK", onPress: () => router.replace("/(tabs)") },
+    ]);
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <TouchableOpacity onPress={() => router.back()} style={styles.back}>
-        <ArrowLeft color={Colors.primary} />
+    <View style={styles.container}>
+      {/* Кнопка назад */}
+      <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+        <ArrowLeft color="#8B5CF6" size={24} />
         <Text style={styles.backText}>Назад</Text>
       </TouchableOpacity>
 
-      <Text style={styles.title}>{service.name}</Text>
+      <ScrollView showsVerticalScrollIndicator={false}>
+        <Text style={styles.title}>{service.name}</Text>
 
-      <View style={styles.infoBox}>
-        <ShieldAlert color={Colors.primary} size={24} />
-        <Text style={styles.infoText}>
-          Этот сервис имеет доступ к вашим {service.dataTypes.join(", ")}.
-        </Text>
-      </View>
-
-      <Text style={styles.section}>ДАННЫЕ (WHAT):</Text>
-      {service.dataTypes.map((d: string, i: number) => (
-        <View key={i} style={styles.dataRow}>
-          <Text style={styles.dataLabel}>{d}</Text>
-          <Text style={styles.dataValue}>Активно</Text>
+        {/* Уровень риска */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <ShieldAlert color="#8B5CF6" size={20} />
+            <Text style={styles.sectionTitle}>СТАТУС БЕЗОПАСНОСТИ</Text>
+          </View>
+          <View style={styles.dataCard}>
+            <Text style={styles.dataLabel}>
+              Уровень риска: {service.riskLevel.toUpperCase()}
+            </Text>
+          </View>
         </View>
-      ))}
 
-      <TouchableOpacity style={styles.revokeBtn} onPress={handleRevoke}>
+        {/* --- ВОТ ЭТА ЧАСТЬ ДОБАВЛЯЕТ ДАННЫЕ --- */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Database color="#8B5CF6" size={20} />
+            <Text style={styles.sectionTitle}>ИСПОЛЬЗУЕМЫЕ ДАННЫЕ</Text>
+          </View>
+          <View style={styles.dataCard}>
+            {service.dataTypes.map((item, index) => (
+              <Text key={index} style={styles.dataLabel}>
+                • {item}
+              </Text>
+            ))}
+          </View>
+        </View>
+        {/* -------------------------------------- */}
+      </ScrollView>
+
+      {/* Кнопка отзыва вынесена вниз */}
+      <TouchableOpacity style={styles.deleteBtn} onPress={handleRevoke}>
         <Trash2 color="white" size={20} />
-        <Text style={styles.revokeText}>ОТКЛЮЧИТЬ И УДАЛИТЬ</Text>
+        <Text style={styles.deleteText}>ОТОЗВАТЬ ВСЕ СОГЛАСИЯ</Text>
       </TouchableOpacity>
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: "#020617",
     padding: 20,
     paddingTop: 60,
   },
-  back: { flexDirection: "row", alignItems: "center", marginBottom: 20 },
-  backText: { color: Colors.primary, marginLeft: 10, fontSize: 16 },
-  title: {
-    fontSize: 32,
-    fontWeight: "bold",
-    color: Colors.textMain,
-    marginBottom: 20,
-  },
-  infoBox: {
-    backgroundColor: Colors.cardBg,
-    padding: 20,
-    borderRadius: 15,
+  backBtn: { flexDirection: "row", alignItems: "center", marginBottom: 20 },
+  backText: { color: "#8B5CF6", marginLeft: 10, fontSize: 18 },
+  title: { fontSize: 32, fontWeight: "bold", color: "white", marginBottom: 10 },
+  section: { marginTop: 25 },
+  sectionHeader: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 30,
-  },
-  infoText: { color: Colors.textMain, flex: 1, marginLeft: 15, fontSize: 14 },
-  section: {
-    color: Colors.primary,
-    fontWeight: "bold",
+    gap: 10,
     marginBottom: 15,
+  },
+  sectionTitle: {
+    color: "#8B5CF6",
+    fontWeight: "bold",
     fontSize: 12,
+    letterSpacing: 1,
   },
-  dataRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: "#2D2A5D",
+  dataCard: {
+    backgroundColor: "#1E1B4B",
+    padding: 20,
+    borderRadius: 20,
+    gap: 10,
   },
-  dataLabel: { color: Colors.textMain, fontSize: 16 },
-  dataValue: { color: Colors.active, fontSize: 14, fontWeight: "bold" },
-  revokeBtn: {
-    backgroundColor: Colors.danger,
+  dataLabel: { color: "white", fontSize: 16 },
+  deleteBtn: {
+    backgroundColor: "#EF4444",
+    padding: 20,
+    borderRadius: 15,
+    marginTop: 20,
     flexDirection: "row",
     justifyContent: "center",
-    padding: 20,
-    borderRadius: 15,
-    marginTop: 40,
     alignItems: "center",
+    gap: 10,
+    marginBottom: 10,
   },
-  revokeText: { color: "white", fontWeight: "bold", marginLeft: 10 },
+  deleteText: { color: "white", fontWeight: "bold" },
 });

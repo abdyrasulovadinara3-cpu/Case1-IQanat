@@ -1,57 +1,105 @@
-import React, { createContext, useCallback, useContext, useState } from "react";
-import { HistoryEntry, Service } from "../types"; // Убедитесь, что типы созданы
+import React, { createContext, useContext, useState } from "react";
 
-// 1. Описываем всё, что контекст отдаёт наружу
+export type RiskLevel = "low" | "medium" | "high";
+
+export interface Service {
+  id: string;
+  name: string;
+  category: string;
+  status: "active" | "inactive";
+  grantedDate: string;
+  dataTypes: string[];
+  riskLevel: RiskLevel;
+}
+
+export interface HistoryEntry {
+  id: string;
+  serviceName: string;
+  action: string;
+  date: string;
+  riskLevel: RiskLevel;
+}
+
 interface ConsentContextType {
   services: Service[];
-  history: HistoryEntry[]; // Исправляет ошибку в explore.tsx
-  toggleAccess: (id: string, newStatus: "active" | "inactive") => void;
-  // Если ваши файлы вызывают именно эти названия, добавим их как обертки:
-  grantAccess: (id: string) => void; // Исправляет ошибку в explore.tsx
-  revokeAccess: (id: string) => void; // Исправляет ошибку в [id].tsx
+  history: HistoryEntry[];
+  grantAccess: (id: string) => void;
+  revokeAccess: (id: string) => void;
 }
+
+const INITIAL_SERVICES: Service[] = [
+  {
+    id: "1",
+    name: "Iqanat Edu",
+    category: "Образование",
+    status: "active",
+    grantedDate: "21.10.2023, 10:00",
+    dataTypes: ["ФИО", "Оценки"],
+    riskLevel: "low",
+  },
+  {
+    id: "2",
+    name: "Kaspi.kz",
+    category: "Финансы",
+    status: "active",
+    grantedDate: "20.10.2023, 15:45",
+    dataTypes: ["Транзакции", "Карта"],
+    riskLevel: "medium",
+  },
+  {
+    id: "3",
+    name: "Smart City",
+    category: "Гос. услуги",
+    status: "active",
+    grantedDate: "19.10.2023, 09:15",
+    dataTypes: ["ИИН", "Адрес"],
+    riskLevel: "high",
+  },
+];
 
 const ConsentContext = createContext<ConsentContextType | undefined>(undefined);
 
-export const ConsentProvider: React.FC<{ children: React.ReactNode }> = ({
+export const ConsentProvider = ({
   children,
+}: {
+  children: React.ReactNode;
 }) => {
-  const [services, setServices] = useState<Service[]>([]); // Инициализируйте своими данными
+  const [services, setServices] = useState<Service[]>(INITIAL_SERVICES);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
 
-  const toggleAccess = useCallback(
-    (id: string, newStatus: "active" | "inactive") => {
-      setServices((prev) =>
-        prev.map((s) => (s.id === id ? { ...s, status: newStatus } : s)),
-      );
+  const updateStatus = (id: string, newStatus: "active" | "inactive") => {
+    const now = new Date().toLocaleString("ru-RU", {
+      hour: "2-digit",
+      minute: "2-digit",
+      day: "2-digit",
+      month: "2-digit",
+    });
+    const targetService = services.find((s) => String(s.id) === String(id));
+    if (!targetService) return;
 
-      // Логика добавления в историю
-      const service = services.find((s) => s.id === id);
-      if (service) {
-        const newEntry: HistoryEntry = {
-          id: Math.random().toString(),
-          serviceName: service.name,
-          action: newStatus === "active" ? "Доступ разрешен" : "Доступ отозван",
-          date: new Date().toLocaleString("ru-RU"),
-        };
-        setHistory((prev) => [newEntry, ...prev]);
-      }
-    },
-    [services],
-  );
+    const entry: HistoryEntry = {
+      id: Math.random().toString(),
+      serviceName: targetService.name,
+      action: newStatus === "active" ? "Доступ разрешен" : "Доступ отозван",
+      date: now,
+      riskLevel: targetService.riskLevel,
+    };
+    setHistory((prev) => [entry, ...prev]);
 
-  // Обертки для удобства, которые просят ваши компоненты
-  const grantAccess = (id: string) => toggleAccess(id, "active");
-  const revokeAccess = (id: string) => toggleAccess(id, "inactive");
+    setServices((prev) =>
+      prev.map((s) =>
+        String(s.id) === String(id) ? { ...s, status: newStatus } : s,
+      ),
+    );
+  };
 
   return (
     <ConsentContext.Provider
       value={{
         services,
         history,
-        toggleAccess,
-        grantAccess,
-        revokeAccess,
+        grantAccess: (id) => updateStatus(id, "active"),
+        revokeAccess: (id) => updateStatus(id, "inactive"),
       }}
     >
       {children}
@@ -61,7 +109,6 @@ export const ConsentProvider: React.FC<{ children: React.ReactNode }> = ({
 
 export const useConsent = () => {
   const context = useContext(ConsentContext);
-  if (!context)
-    throw new Error("useConsent must be used within ConsentProvider");
+  if (!context) throw new Error("useConsent missing");
   return context;
 };

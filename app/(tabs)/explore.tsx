@@ -1,119 +1,122 @@
-import { PlusCircle } from "lucide-react-native";
+import { Activity, RefreshCw } from "lucide-react-native";
 import React from "react";
 import {
-  FlatList,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
-import { Colors } from "../../constants/Colors";
 import { useConsent } from "../../services-context/ConsentContext";
 
 export default function HistoryScreen() {
   const { history, services, grantAccess } = useConsent();
-  const inactiveServices = services.filter((s: any) => s.status === "inactive");
+
+  // ФИЛЬТР: Отключенные приложения (Архив)
+  const archived = services.filter((s) => s.status === "inactive");
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Архив и Логи</Text>
+    <ScrollView style={styles.container}>
+      <Text style={styles.title}>История</Text>
 
-      {inactiveServices.length > 0 && (
-        <View style={{ marginBottom: 30 }}>
-          <Text style={styles.sectionTitle}>ВЕРНУТЬ ДОСТУП:</Text>
-          {inactiveServices.map((s: any) => (
-            <TouchableOpacity
-              key={s.id}
-              style={styles.addCard}
-              onPress={() => grantAccess(s.id)}
-            >
-              <Text style={styles.addText}>{s.name}</Text>
-              <PlusCircle color={Colors.active} size={22} />
+      {/* Секция Архива */}
+      <Text style={styles.sectionTitle}>АРХИВ (ОТКЛЮЧЕНО)</Text>
+      {archived.length > 0 ? (
+        archived.map((s) => (
+          <View key={s.id} style={styles.archivedCard}>
+            <View>
+              <Text style={styles.archivedName}>{s.name}</Text>
+              <Text style={styles.archivedDate}>
+                Был активен до: {s.grantedDate}
+              </Text>
+            </View>
+            <TouchableOpacity onPress={() => grantAccess(s.id)}>
+              <RefreshCw color="#10B981" size={20} />
             </TouchableOpacity>
-          ))}
-        </View>
+          </View>
+        ))
+      ) : (
+        <Text style={styles.emptyText}>Архив пуст</Text>
       )}
 
-      <Text style={styles.sectionTitle}>ПОЛНАЯ ИСТОРИЯ ДЕЙСТВИЙ:</Text>
-      <FlatList
-        data={history}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <View style={styles.historyItem}>
-            <View style={styles.historyHeader}>
-              <Text style={styles.historyService}>{item.serviceName}</Text>
-              <Text style={styles.historyDate}>{item.date}</Text>
-            </View>
-            <Text
-              style={[
-                styles.historyAction,
-                {
-                  color:
-                    item.action === "Доступ разрешен"
-                      ? Colors.active
-                      : Colors.danger,
-                },
-              ]}
-            >
-              {item.action}
-            </Text>
+      {/* Полный лог действий */}
+      <View style={styles.logHeader}>
+        <Activity color="#8B5CF6" size={20} />
+        <Text style={styles.sectionTitle}>ЛОГ ВСЕХ ОПЕРАЦИЙ</Text>
+      </View>
+
+      {history.map((item) => (
+        <View key={item.id} style={styles.logItem}>
+          <View style={styles.logTop}>
+            <Text style={styles.logName}>{item.serviceName}</Text>
+            <Text style={styles.logDate}>{item.date}</Text>
           </View>
-        )}
-        ListEmptyComponent={<Text style={styles.emptyText}>История пуста</Text>}
-      />
-    </View>
+          <Text
+            style={[
+              styles.logAction,
+              {
+                color: item.action.includes("разрешен") ? "#10B981" : "#EF4444",
+              },
+            ]}
+          >
+            {item.action}
+          </Text>
+        </View>
+      ))}
+      <View style={{ height: 50 }} />
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: "#020617",
     padding: 20,
     paddingTop: 60,
   },
   title: {
     fontSize: 28,
     fontWeight: "bold",
-    color: Colors.textMain,
+    color: "#F8FAFC",
     marginBottom: 25,
   },
   sectionTitle: {
-    color: Colors.primary,
+    color: "#8B5CF6",
     fontSize: 12,
     fontWeight: "bold",
     marginBottom: 15,
     letterSpacing: 1,
   },
-  addCard: {
-    backgroundColor: Colors.cardBg,
+  archivedCard: {
+    backgroundColor: "#1E1B4B55",
     padding: 15,
-    borderRadius: 12,
+    borderRadius: 15,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 10,
+    borderStyle: "dashed",
+    borderWidth: 1,
+    borderColor: "#334155",
   },
-  addText: { color: Colors.textMain, fontSize: 16 },
-  historyItem: {
-    backgroundColor: "#1E1B4B55",
-    padding: 15,
-    borderRadius: 12,
-    marginBottom: 10,
-    borderLeftWidth: 3,
-    borderLeftColor: Colors.primary,
-  },
-  historyHeader: {
+  archivedName: { color: "#94A3B8", fontWeight: "bold", fontSize: 16 },
+  archivedDate: { color: "#475569", fontSize: 10, marginTop: 4 },
+  logHeader: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 5,
+    alignItems: "center",
+    gap: 10,
+    marginTop: 35,
+    marginBottom: 15,
   },
-  historyService: { color: Colors.textMain, fontWeight: "bold" },
-  historyDate: { color: Colors.textSecondary, fontSize: 10 },
-  historyAction: { fontSize: 13, fontWeight: "600" },
-  emptyText: {
-    color: Colors.textSecondary,
-    textAlign: "center",
-    marginTop: 20,
+  logItem: {
+    borderBottomWidth: 1,
+    borderBottomColor: "#1E1B4B",
+    paddingVertical: 12,
   },
+  logTop: { flexDirection: "row", justifyContent: "space-between" },
+  logName: { color: "white", fontWeight: "bold" },
+  logDate: { color: "#475569", fontSize: 10 },
+  logAction: { fontSize: 12, fontWeight: "bold", marginTop: 4 },
+  emptyText: { color: "#475569", fontSize: 12, marginBottom: 20 },
 });
