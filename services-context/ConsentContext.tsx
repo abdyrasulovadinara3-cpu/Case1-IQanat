@@ -1,105 +1,67 @@
-import React, { createContext, useContext, useState } from "react";
+import React, { createContext, useCallback, useContext, useState } from "react";
+import { HistoryEntry, Service } from "../types"; // Убедитесь, что типы созданы
 
-export type HistoryEntry = {
-  id: string;
-  serviceName: string;
-  action: "Доступ разрешен" | "Доступ отозван";
-  date: string;
-};
+// 1. Описываем всё, что контекст отдаёт наружу
+interface ConsentContextType {
+  services: Service[];
+  history: HistoryEntry[]; // Исправляет ошибку в explore.tsx
+  toggleAccess: (id: string, newStatus: "active" | "inactive") => void;
+  // Если ваши файлы вызывают именно эти названия, добавим их как обертки:
+  grantAccess: (id: string) => void; // Исправляет ошибку в explore.tsx
+  revokeAccess: (id: string) => void; // Исправляет ошибку в [id].tsx
+}
 
-export type Service = {
-  id: string;
-  name: string;
-  category: string;
-  status: "active" | "inactive";
-  grantedDate: string;
-  dataTypes: string[];
-};
+const ConsentContext = createContext<ConsentContextType | undefined>(undefined);
 
-const INITIAL_SERVICES: Service[] = [
-  {
-    id: "1",
-    name: "Iqanat Edu",
-    category: "Образование",
-    status: "active",
-    grantedDate: "21.10.2023, 10:00",
-    dataTypes: ["ФИО", "Оценки"],
-  },
-  {
-    id: "2",
-    name: "Kaspi.kz",
-    category: "Финансы",
-    status: "active",
-    grantedDate: "20.10.2023, 15:45",
-    dataTypes: ["Телефон", "Транзакции"],
-  },
-  {
-    id: "3",
-    name: "Smart City",
-    category: "Гос. услуги",
-    status: "active",
-    grantedDate: "19.10.2023, 09:15",
-    dataTypes: ["ИИН", "Адрес"],
-  },
-];
-
-const ConsentContext = createContext<any>(null);
-
-export const ConsentProvider = ({
+export const ConsentProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
-}: {
-  children: React.ReactNode;
 }) => {
-  const [services, setServices] = useState<Service[]>(INITIAL_SERVICES);
+  const [services, setServices] = useState<Service[]>([]); // Инициализируйте своими данными
   const [history, setHistory] = useState<HistoryEntry[]>([]);
 
-  const revokeAccess = (id: string) => {
-    const service = services.find((s) => s.id === id);
-    if (!service) return;
+  const toggleAccess = useCallback(
+    (id: string, newStatus: "active" | "inactive") => {
+      setServices((prev) =>
+        prev.map((s) => (s.id === id ? { ...s, status: newStatus } : s)),
+      );
 
-    const now = new Date().toLocaleString("ru-RU");
-    setServices((prev) =>
-      prev.map((s) => (s.id === id ? { ...s, status: "inactive" } : s)),
-    );
+      // Логика добавления в историю
+      const service = services.find((s) => s.id === id);
+      if (service) {
+        const newEntry: HistoryEntry = {
+          id: Math.random().toString(),
+          serviceName: service.name,
+          action: newStatus === "active" ? "Доступ разрешен" : "Доступ отозван",
+          date: new Date().toLocaleString("ru-RU"),
+        };
+        setHistory((prev) => [newEntry, ...prev]);
+      }
+    },
+    [services],
+  );
 
-    setHistory((prev: any) => [
-      {
-        id: Math.random().toString(),
-        serviceName: service.name,
-        action: "Доступ отозван",
-        date: now,
-      },
-      ...prev,
-    ]);
-  };
-
-  const grantAccess = (id: string) => {
-    const now = new Date().toLocaleString("ru-RU");
-    setServices((prev) =>
-      prev.map((s) =>
-        s.id === id ? { ...s, status: "active", grantedDate: now } : s,
-      ),
-    );
-
-    const service = services.find((s) => s.id === id);
-    setHistory((prev: any) => [
-      {
-        id: Math.random().toString(),
-        serviceName: service?.name || "Сервис",
-        action: "Доступ разрешен",
-        date: now,
-      },
-      ...prev,
-    ]);
-  };
+  // Обертки для удобства, которые просят ваши компоненты
+  const grantAccess = (id: string) => toggleAccess(id, "active");
+  const revokeAccess = (id: string) => toggleAccess(id, "inactive");
 
   return (
     <ConsentContext.Provider
-      value={{ services, history, revokeAccess, grantAccess }}
+      value={{
+        services,
+        history,
+        toggleAccess,
+        grantAccess,
+        revokeAccess,
+      }}
     >
       {children}
     </ConsentContext.Provider>
   );
 };
 
-export const useConsent = () => useContext(ConsentContext);
+export const useConsent = () => {
+  const context = useContext(ConsentContext);
+  if (!context)
+    throw new Error("useConsent must be used within ConsentProvider");
+  return context;
+};
